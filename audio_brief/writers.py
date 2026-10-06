@@ -48,7 +48,26 @@ def write_transcript_json(segments, meta: dict, path: Path) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def write_summary(text: str, path: Path) -> None:
+def write_summary(
+    text: str,
+    path: Path,
+    llm: bool = False,
+) -> list[str]:
+    """Write an extractive or optional LLM-generated summary."""
+    if llm:
+        try:
+            from .llm import summarize_with_ollama
+
+            summary = summarize_with_ollama(text)
+        except Exception as exc:
+            print(f"WARNING: LLM summary failed, using extractive summary: {exc}")
+            summary = ""
+
+        if summary:
+            lines = ["# Summary", "", summary]
+            path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            return [summary]
+
     sents = textproc.summarize(text)
     lines = ["# Summary", ""]
     if not sents:
@@ -56,6 +75,7 @@ def write_summary(text: str, path: Path) -> None:
     for i, s in enumerate(sents, 1):
         lines.append(f"{i}. {s}")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return sents
 
 
 def write_keywords(text: str, path: Path) -> None:
