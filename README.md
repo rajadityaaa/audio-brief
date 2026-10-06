@@ -15,7 +15,7 @@ Works on **Linux** and **macOS**.
 
 - 🎙️ Record from your microphone or transcribe existing audio files
 - 🌍 Auto language detection (or force it with `--language`)
-- 🧠 Extractive summary, keyword extraction, and mind maps (Markmap + Mermaid)
+- 🧠 Extractive summary, optional local LLM summary, keyword extraction, and mind maps (Markmap + Mermaid)
 - 📄 Subtitles in SRT/VTT + a single bundled `report.md`
 - ⚡ Queue multiple files, optionally in parallel with `--jobs N`
 - 🖥️ Friendly CLI: sensible defaults, zero prompts when piped/CI
@@ -57,8 +57,8 @@ pipx install .         # isolated CLI install
 ## 📖 Usage
 
 ```
-audio-brief record [seconds] [--model M] [--language L] [--out DIR] [--keep-raw]
-audio-brief transcribe <file> [file2 ...] [--jobs N] [--model M] [--language L] [--out DIR]
+audio-brief record [seconds] [--model M] [--language L] [--out DIR] [--keep-raw] [--llm-summary]
+audio-brief transcribe <file> [file2 ...] [--jobs N] [--model M] [--language L] [--out DIR] [--llm-summary]
 audio-brief --version
 ```
 
@@ -69,6 +69,7 @@ audio-brief --version
 | `--out DIR` | Choose the output directory |
 | `--jobs N` | Transcribe N files in parallel |
 | `--keep-raw` | Keep the recorded `.wav` inside the output folder (`record` only) |
+| `--llm-summary` | Use a local Ollama model for summarization; falls back to the extractive summary if unavailable |
 
 Examples:
 
@@ -82,6 +83,18 @@ audio-brief transcribe a.mp3 b.mp3 c.mp3 --jobs 2
 
 When run interactively you'll be asked for language and model once; when
 piped (CI, scripts) it silently uses auto-detect + `base`.
+
+### Optional LLM summaries
+
+By default, audio-brief uses its extractive summarizer and does not require an
+LLM or API key.
+
+To generate a more natural summary using a local Ollama model, first install
+and run [Ollama](https://ollama.com/) and make sure a model is available, then
+use:
+
+```bash
+audio-brief transcribe meeting.mp3 --llm-summary
 
 ## 📂 Output
 

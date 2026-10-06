@@ -81,6 +81,7 @@ def transcribe_and_write(
     model_name: str,
     language: str | None,
     out_path: Path,
+    llm_summary: bool = False,
 ) -> None:
     """Transcribe one audio file and write all output artifacts."""
     try:
@@ -116,14 +117,18 @@ def transcribe_and_write(
     writers.write_transcript_srt(segments, out_path / "transcript.srt")
     writers.write_transcript_vtt(segments, out_path / "transcript.vtt")
     writers.write_transcript_json(segments, meta, out_path / "transcript.json")
-    writers.write_summary(text, out_path / "summary.md")
+    summary = writers.write_summary(
+        text,
+        out_path / "summary.md",
+        llm=llm_summary,
+        )
     writers.write_keywords(text, out_path / "keywords.md")
     writers.write_mindmap_markdown(text, out_path / "mindmap.md")
     writers.write_mindmap_mermaid(text, out_path / "mindmap.mmd")
     writers.write_report(
         text,
         textproc.extract_keywords(text),
-        textproc.summarize(text),
+        summary,
         (out_path / "mindmap.md").read_text(encoding="utf-8"),
         out_path / "report.md",
         meta,
@@ -141,11 +146,12 @@ def transcribe_single(
     language: str | None,
     out_dir_base: Path,
     idx: int | None = None,
+    llm_summary: bool = False,
 ) -> None:
     """Transcribe one audio file into its own subfolder of out_dir_base."""
     audio = Path(audio_path)
     out_path = _output_dir(out_dir_base, audio, idx)
-    transcribe_and_write(audio_path, model_name, language, out_path)
+    transcribe_and_write(audio_path, model_name, language, out_path, llm_summary=llm_summary)
 
 
 def _add_common_options(p: argparse.ArgumentParser) -> None:
@@ -155,6 +161,11 @@ def _add_common_options(p: argparse.ArgumentParser) -> None:
                    help="ISO 639-1/-2 language code (default: asked / auto)")
     p.add_argument("--out", "--output", dest="out", default=None,
                    help="Output directory (default: audio-brief-<timestamp>/ under cwd)")
+    p.add_argument(
+        "--llm-summary",
+        action="store_true",
+        help="Use a local Ollama model for summarization (falls back to extractive summary)",
+    )
 
 
 def _resolve_language(value: str | None) -> str | None:
@@ -207,7 +218,7 @@ def main(argv: list[str] | None = None) -> None:
             if args.keep_raw:
                 shutil.copy2(raw, out_dir_base / raw.name)
             out_path = out_dir_base / raw.stem
-            transcribe_and_write(str(raw), model_name, language, out_path)
+            transcribe_and_write(str(raw), model_name, language, out_path, llm_summary=args.llm_summary,)
         finally:
             if not args.keep_raw:
                 try:
@@ -226,12 +237,12 @@ def main(argv: list[str] | None = None) -> None:
     if n_jobs == 1:
         for i, audio in enumerate(audio_files):
             print(f"\n[{i+1}/{len(audio_files)}]", end=" ")
-            transcribe_single(str(audio), model_name, language, out_dir_base, idx=i)
+            transcribe_single(str(audio), model_name, language, out_dir_base, idx=i, llm_summary=args.llm_summary,)
     else:
         print(f"\nStarting {n_jobs} parallel transcriptions (jobs={n_jobs}) …")
         with concurrent.futures.ProcessPoolExecutor(max_workers=n_jobs) as executor:
             futures = [
-                executor.submit(transcribe_single, str(audio), model_name, language, out_dir_base, None)
+                executor.submit(transcribe_single, str(audio), model_name, language, out_dir_base, None,)
                 for audio in audio_files
             ]
             for future in concurrent.futures.as_completed(futures):
